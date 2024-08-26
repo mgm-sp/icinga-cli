@@ -1,0 +1,33 @@
+#!/bin/sh
+
+get_status() {
+	tmpfile=$(mktemp --suffix .json)
+	http_code=$(curl -o "$tmpfile" -w "%{http_code}" -s "$ICINGA_URL/monitoring/list/services?service_problem=1&sort=service_severity&dir=desc&format=json"\
+		--cookie "$COOKIEFILE"\
+		--cookie-jar "$COOKIEFILE")
+
+	cat "$tmpfile"
+	rm "$tmpfile"
+	if [ "$http_code" -eq 302 ];then
+		return 3
+	else
+		return 0
+	fi
+}
+
+icinga_status=$(get_status)
+
+if [ $? -eq 3 ];then
+	if  [ -z "$ICINGA_PASS" ];then
+		echo "Please login first"
+		exit
+	else
+		icinga login
+		icinga_status=$(get_status)
+	fi
+fi
+
+echo "$icinga_status" |\
+	jq -e -r '.[]|select(.service_state != "0")|[(.service_last_state_change|tonumber|strftime("%F %T")),.host_display_name,.service_display_name,.service_output]|join("|")'|\
+	sort|\
+	column -s'|' -t

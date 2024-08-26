@@ -1,0 +1,7 @@
+#!/bin/sh
+
+curl -s "$ICINGA_URL/authentication/logout"\
+	--cookie "$COOKIEFILE"\
+	--cookie-jar "$COOKIEFILE"
+
+rm "$COOKIEFILE"

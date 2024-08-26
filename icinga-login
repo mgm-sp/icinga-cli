@@ -1,0 +1,32 @@
+#!/bin/sh
+
+
+if [ -z "$ICINGA_USER" ];then
+	printf "Username: "
+	read -r ICINGA_USER
+fi
+if [ -z "$ICINGA_PASS" ];then
+	printf "Passwort: "
+	stty -echo
+	read -r ICINGA_PASS
+	stty echo
+	echo
+fi
+
+CSRFTOKEN=$(curl -L -s -D -\
+	--cookie "$COOKIEFILE"\
+	--cookie-jar "$COOKIEFILE"\
+	"$ICINGA_URL/authentication/login" |grep 'name="CSRFToken".*value'|sed 's/^.*value="\([^"]*\)".*$/\1/g'|head -n1)
+
+curl -s "$ICINGA_URL/authentication/login"\
+	--cookie "$COOKIEFILE"\
+	--cookie-jar "$COOKIEFILE"\
+	-H "Accept-Language: de-DE,en-US;q=0.7,en;q=0.3"\
+	--data-urlencode "CSRFToken=$CSRFTOKEN"\
+	--data-urlencode "redirect="\
+	--data-urlencode "formUID=form_login"\
+	--data-urlencode "btn_submit=Anmelden"\
+	--data-urlencode "username=$ICINGA_USER"\
+	--data-urlencode "password=$ICINGA_PASS"
+
+chmod go-r "$COOKIEFILE"

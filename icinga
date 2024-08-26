@@ -1,0 +1,42 @@
+#!/bin/sh
+# Place this file into your $PATH
+
+usage(){
+	echo "usage: $(basename "$0") <subcommand>"
+	printf "Subcommand may be one of: "
+	echo "$SUBCOMMANDS"|sort|tr "\n" " "
+	echo
+	exit 1
+}
+
+CMD=$(basename "$0")
+CLI_DIR="$(dirname "$(readlink -f "$0")")"
+export COOKIEFILE="$HOME/.cache/icinga-cookies"
+
+export CMD
+export CLI_DIR
+
+CONFIGFILE="$HOME/.config/$CMD.env"
+if [ -f "$CONFIGFILE" ];then
+	# https://zwbetz.com/set-environment-variables-in-your-bash-shell-from-a-env-file/
+	export $(grep -v '^#' "$CONFIGFILE" | xargs)
+else
+	echo "ERROR: $CONFIGFILE does not exist!"
+	echo "See $CLI_DIR/README.md for details"
+	exit
+fi
+
+SUBCOMMANDS=$("$CLI_DIR/$CMD-commands")
+
+if [ $# = 0 ];then
+	usage
+fi
+
+SUB="$1"
+
+if ! echo "$SUBCOMMANDS"|grep -q "^$SUB$" ; then
+	usage
+fi
+
+shift 1
+"$CLI_DIR/$CMD-$SUB" "$@"

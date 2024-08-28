@@ -1,0 +1,7 @@
+#!/bin/sh
+
+curl -s "$ICINGA_URL/director/hosts?format=json"\
+		--cookie "$COOKIEFILE"\
+		--cookie-jar "$COOKIEFILE"|\
+		jq -r '.objects[] | [.object_name,.address] | @tsv'
+

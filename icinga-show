@@ -1,0 +1,76 @@
+#!/bin/sh
+#ICINGA_URL=http://localhost:8080
+
+urlencode() {
+	# cannot use --data-urlencode from curl because it transforms " " into "+"
+	printf '%s' "$1" | jq -sRr @uri
+}
+show() {
+	tmpfile=$(mktemp --suffix .json)
+	host=$(urlencode "$1")
+	service=$(urlencode "$2")
+	http_code=$(curl -o "$tmpfile" -w "%{http_code}" -s "$ICINGA_URL/monitoring/service/show?host=$host&service=$service&format=json"\
+		--cookie "$COOKIEFILE"\
+		--cookie-jar "$COOKIEFILE")
+
+	cat "$tmpfile"
+	rm "$tmpfile"
+	if [ "$http_code" -eq 302 ];then
+		return 3
+	elif [ "$http_code" -eq 404 ];then
+		return 4
+	else
+		return 0
+	fi
+}
+
+case $# in
+	2)
+		host=$1
+		service=$2
+		;;
+	*)
+		echo "Wrong number of arguments"
+		usage
+		;;
+esac
+
+icinga_status=$(show "$host" "$service")
+
+case $? in
+	3)
+		echo "Please login first"
+		exit
+		;;
+	4)
+		echo "Service '$service' not found for host '$host'"
+		exit
+		;;
+esac
+
+status=$(echo "$icinga_status" | jq -r '.data.service_state')
+host_name=$(echo "$icinga_status" | jq -r '.data.host_name')
+service_output=$(echo "$icinga_status" | jq -r '.data.service_output')
+service_long_output=$(echo "$icinga_status" | jq -r '.data.service_long_output')
+service_last_check=$(echo "$icinga_status" | jq -r '(.data.service_last_check|tonumber|strftime("%F %T"))')
+
+if [ "$status" -eq 0 ]; then
+  status_symbol="✔"
+  color_code="\033[0;32m" # Grün
+elif [ "$status" -eq 1 ]; then
+  status_symbol="!"
+  color_code="\033[0;33m" # Gelb
+else
+  status_symbol="✘"
+  color_code="\033[0;31m" # Rot
+fi
+
+# Ergebnis formatieren und ausgeben
+printf "Status: %b%s\033[0m, " "$color_code" "$status_symbol"
+printf "Host: \"%s\"" "$host_name"
+printf ", Last Check: %s\n" "$service_last_check"
+if [ -z "$service_long_output" ];then
+	printf "%s\n" "$service_output"
+else
+	printf "%s\n" "$service_long_output"
+fi

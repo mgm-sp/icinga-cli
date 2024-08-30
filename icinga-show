@@ -1,6 +1,9 @@
 #!/bin/sh
-#ICINGA_URL=http://localhost:8080
 
+usage(){
+	echo "usage: $(basename "$0") <host> <service>"
+	exit 1
+}
 urlencode() {
 	# cannot use --data-urlencode from curl because it transforms " " into "+"
 	printf '%s' "$1" | jq -sRr @uri
